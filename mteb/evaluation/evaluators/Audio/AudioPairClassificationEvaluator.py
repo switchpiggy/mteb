@@ -39,7 +39,7 @@ class AudioPairClassificationEvaluator(Evaluator):
     def __init__(
         self,
         audio1,
-        audios2,
+        audio2,
         labels,
         task_name: str | None = None,
         limit: int | None = None,
@@ -57,6 +57,12 @@ class AudioPairClassificationEvaluator(Evaluator):
 
         assert len(self.audio1) == len(self.audio2)
         assert len(self.audio1) == len(self.labels)
+
+        if type(labels).__name__ == 'list':
+            labels = [label[0] for label in labels]
+
+        # print(labels[0])
+
         for label in labels:
             assert label == 0 or label == 1
 
@@ -81,7 +87,10 @@ class AudioPairClassificationEvaluator(Evaluator):
         if "batch_size" not in encode_kwargs:
             encode_kwargs["batch_size"] = 32
 
-        audios = list(set(self.audio1 + self.audio2))
+        audios = set()
+        for audio in self.audio1 + self.audio2:
+            audios.add(tuple(audio))
+        audios = list(audios)
 
         total_audios = len(self.audio1) + len(self.audio2)
         n_duplicates = total_audios - len(audios)
@@ -89,14 +98,16 @@ class AudioPairClassificationEvaluator(Evaluator):
             logger.warning(
                 f"Found {n_duplicates}/{total_audios} duplicates in the input data. Only encoding unique sentences."
             )
+        audios = [np.array(audio) for audio in audios]
         embeddings = model.encode(
             audios,
             task_name=self.task_name,
             **encode_kwargs,
         )
-        emb_dict = dict(zip(audios, embeddings))
-        embeddings1 = [emb_dict[audio] for audio in self.audio1]
-        embeddings2 = [emb_dict[audio] for audio in self.audio2]
+
+        emb_dict = {tuple(audio.tolist()): embedding for audio, embedding in zip(audios, embeddings)}
+        embeddings1 = [emb_dict[tuple(audio)] for audio in self.audio1]
+        embeddings2 = [emb_dict[tuple(audio)] for audio in self.audio2]
 
         logger.info("Computing similarity distances.")
         cosine_scores = 1 - paired_cosine_distances(embeddings1, embeddings2)

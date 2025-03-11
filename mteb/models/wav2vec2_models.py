@@ -9,7 +9,7 @@ import torch
 import torchaudio
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-from transformers import Wav2Vec2FeatureExtractor, Wav2Vec2ForCTC
+from transformers import Wav2Vec2FeatureExtractor, Wav2Vec2ForCTC, Wav2Vec2Model
 
 from mteb.encoder_interface import AudioBatch, AudioData, PromptType
 from mteb.model_meta import ModelMeta
@@ -161,6 +161,7 @@ class Wav2Vec2AudioWrapper(Wrapper):
         batch_size: int = 4,
         **kwargs: Any,
     ) -> torch.Tensor:
+        # print(len(audio), len(audio[0]))
         processed_audio = self._process_audio(audio)
         all_embeddings = []
 
