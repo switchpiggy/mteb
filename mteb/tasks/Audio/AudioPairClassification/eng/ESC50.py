@@ -8,6 +8,9 @@ import numpy as np
 from mteb.abstasks.Audio.AbsTaskAudioPairClassification import (
     AbsTaskAudioPairClassification,
 )
+from tqdm import tqdm
+
+random.seed(42)
 
 class ESC50PairClassification(AbsTaskAudioPairClassification):
     metadata = TaskMetadata(
@@ -20,9 +23,9 @@ class ESC50PairClassification(AbsTaskAudioPairClassification):
         },
         type="AudioPairClassification",
         category="a2a",
-        eval_splits=["train"],
+        eval_splits=["test"],
         eval_langs=["eng-Latn"],
-        main_score="accuracy",
+        main_score="max_ap",
         date=("2023-01-07", "2023-01-07"),
         domains=[
             "Encyclopaedic"
@@ -50,27 +53,33 @@ class ESC50PairClassification(AbsTaskAudioPairClassification):
         },
     )
 
-    audio_column_name: str = "audio"
-    label_column_name: str = "target"
-    samples_per_label: int = 50
+    audio1_column_name: str = "audio1"
+    audio2_column_name: str = "audio2"
+    label_column_name: str = "label"
+    samples_per_label: int = 2
 
     def dataset_transform(self):
         df = pd.DataFrame(self.dataset['train'])
 
         df = df.rename(columns={"target": "label"})
-        grouped = df.groupby("label")
+        grouped = [df.loc[df['label'] == label] for label in df['label'].unique()]
 
         similar_pairs = []
         dissimilar_pairs = []
 
-        for _, group in grouped:
-            files = list(group["audio"])
+        print('Generating similar pairs: ')
+        for group in tqdm(grouped):
+            files = [audio['array'].tolist() for audio in group['audio']]
             random.shuffle(files)
-            similar_pairs.extend([(files[i], files[i+1], 1) for i in range(0, len(files) - 1, 2)])
+            # print(files[0])
+            similar_pairs.extend([[files[i], files[i+1], [1]] for i in range(0, len(files) - 1, 2)])
 
         all_files = [audio['array'].tolist() for audio in df["audio"]]
         all_labels = df["label"].values.tolist()
+
+        print('done!')
         
+        print('Generating dissimilar pairs: ')
         num_similar = len(similar_pairs)
         while len(dissimilar_pairs) < num_similar:
             idx1, idx2 = random.sample(range(len(all_files)), 2)
@@ -79,13 +88,24 @@ class ESC50PairClassification(AbsTaskAudioPairClassification):
 
         pairs = similar_pairs + dissimilar_pairs
         random.shuffle(pairs)
+        print('done!')
 
-        print(type(pairs[:][2]))
+        print(f'Number of pairs: {len(pairs)}')
+        
+        print('Zipping features and generating dataset...')
+        audio1, audio2, label = zip(*pairs)
+
+        # print(label)
 
         # convert back to HF dataset
-        self.dataset = datasets.Dataset.from_dict({
-            'audio1': pairs[:][0],
-            'audio2': pairs[:][1],
-            'labels': pairs[:][2]
+        self.dataset = datasets.DatasetDict({
+            'test': datasets.Dataset.from_dict({
+                'audio1': list(audio1),
+                'audio2': list(audio2),
+                'label': list(label)
+            })
         })
-        # self.dataset = datasets.Dataset.from_pandas(pd.DataFrame(pairs, columns=["audio1", "audio2", "labels"]))
+        print('done!')
+
+        # res_df = pd.DataFrame(pairs, columns=["audio1", "audio2", "labels"])
+        # self.dataset = datasets.DatasetDict({'test': datasets.Dataset.from_pandas(res_df, split='test')})
