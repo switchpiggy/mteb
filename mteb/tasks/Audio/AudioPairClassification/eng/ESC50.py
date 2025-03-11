@@ -1,8 +1,10 @@
 from __future__ import annotations
 
-from abstasks.TaskMetadata import TaskMetadata
+from mteb.abstasks.TaskMetadata import TaskMetadata
 import random
+import datasets
 import pandas as pd
+import numpy as np
 from mteb.abstasks.Audio.AbsTaskAudioPairClassification import (
     AbsTaskAudioPairClassification,
 )
@@ -52,86 +54,38 @@ class ESC50PairClassification(AbsTaskAudioPairClassification):
     label_column_name: str = "target"
     samples_per_label: int = 50
 
-    def get_candidate_labels(self) -> list[str]:
-        """Return the text candidates for zeroshot classification"""
-        return [
-            "This is a sound of dog",
-            "This is a sound of rooster",
-            "This is a sound of pig",
-            "This is a sound of cow",
-            "This is a sound of frog",
-            "This is a sound of cat",
-            "This is a sound of hen",
-            "This is a sound of insects",
-            "This is a sound of sheep",
-            "This is a sound of crow",
-            "This is a sound of rain",
-            "This is a sound of sea_waves",
-            "This is a sound of crackling_fire",
-            "This is a sound of crickets",
-            "This is a sound of chirping_birds",
-            "This is a sound of water_drops",
-            "This is a sound of wind",
-            "This is a sound of pouring_water",
-            "This is a sound of toilet_flush",
-            "This is a sound of thunderstorm",
-            "This is a sound of crying_baby",
-            "This is a sound of sneezing",
-            "This is a sound of clapping",
-            "This is a sound of breathing",
-            "This is a sound of coughing",
-            "This is a sound of footsteps",
-            "This is a sound of laughing",
-            "This is a sound of brushing_teeth",
-            "This is a sound of snoring",
-            "This is a sound of drinking_sipping",
-            "This is a sound of door_wood_knock",
-            "This is a sound of mouse_click",
-            "This is a sound of keyboard_typing",
-            "This is a sound of door_wood_creaks",
-            "This is a sound of can_opening",
-            "This is a sound of washing_machine",
-            "This is a sound of vacuum_cleaner",
-            "This is a sound of clock_alarm",
-            "This is a sound of clock_tick",
-            "This is a sound of glass_breaking",
-            "This is a sound of helicopter",
-            "This is a sound of chainsaw",
-            "This is a sound of siren",
-            "This is a sound of car_horn",
-            "This is a sound of engine",
-            "This is a sound of train",
-            "This is a sound of church_bells",
-            "This is a sound of airplane",
-            "This is a sound of fireworks",
-            "This is a sound of hand_saw",
-        ]
+    def dataset_transform(self):
+        df = pd.DataFrame(self.dataset['train'])
 
-def dataset_transform(self):
-    df = pd.DataFrame(self.dataset)
+        df = df.rename(columns={"target": "label"})
+        grouped = df.groupby("label")
 
-    df = df.rename(columns={"filename": "audio", "target": "label"})
-    grouped = df.groupby("label")
+        similar_pairs = []
+        dissimilar_pairs = []
 
-    similar_pairs = []
-    dissimilar_pairs = []
+        for _, group in grouped:
+            files = list(group["audio"])
+            random.shuffle(files)
+            similar_pairs.extend([(files[i], files[i+1], 1) for i in range(0, len(files) - 1, 2)])
 
-    for _, group in grouped:
-        files = list(group["audio"])
-        random.shuffle(files)
-        similar_pairs.extend([(files[i], files[i+1], 1) for i in range(0, len(files) - 1, 2)])
+        all_files = [audio['array'].tolist() for audio in df["audio"]]
+        all_labels = df["label"].values.tolist()
+        
+        num_similar = len(similar_pairs)
+        while len(dissimilar_pairs) < num_similar:
+            idx1, idx2 = random.sample(range(len(all_files)), 2)
+            if all_labels[idx1] != all_labels[idx2]:  
+                dissimilar_pairs.append([all_files[idx1], all_files[idx2], [0]])
 
-    all_files = df["audio"].tolist()
-    all_labels = df["label"].tolist()
-    
-    num_similar = len(similar_pairs)
-    while len(dissimilar_pairs) < num_similar:
-        idx1, idx2 = random.sample(range(len(all_files)), 2)
-        if all_labels[idx1] != all_labels[idx2]:  
-            dissimilar_pairs.append((all_files[idx1], all_files[idx2], 0))
+        pairs = similar_pairs + dissimilar_pairs
+        random.shuffle(pairs)
 
-    pairs = similar_pairs + dissimilar_pairs
-    random.shuffle(pairs)
+        print(type(pairs[:][2]))
 
-    # convert back to HF dataset
-    self.dataset = datasets.Dataset.from_pandas(pd.DataFrame(pairs, columns=["audio1", "audio2", "labels"]))
+        # convert back to HF dataset
+        self.dataset = datasets.Dataset.from_dict({
+            'audio1': pairs[:][0],
+            'audio2': pairs[:][1],
+            'labels': pairs[:][2]
+        })
+        # self.dataset = datasets.Dataset.from_pandas(pd.DataFrame(pairs, columns=["audio1", "audio2", "labels"]))

@@ -3,6 +3,8 @@ from __future__ import annotations
 from .aggregated_tasks import *
 from .Audio.AudioMultilabelClassification import *
 from .Audio.Clustering import *
+from .Audio.AudioPairClassification import *
+from .Audio.AudioZeroshotClassification import *
 from .BitextMining import *
 from .Classification import *
 from .Clustering import *

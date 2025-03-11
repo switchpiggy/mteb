@@ -32,6 +32,7 @@ def create_task_list() -> list[type[AbsTask]]:
         for cls in cat_cls.__subclasses__()
         if cat_cls.__name__.startswith("AbsTask")
     ]
+    
     return tasks
 
 
