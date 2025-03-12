@@ -22,7 +22,7 @@ class FMAGenrePairClassification(AbsTaskAudioPairClassification):
         },
         type="AudioPairClassification",
         category="t2t", # no audio category yet
-        eval_splits=["train"],
+        eval_splits=["test"],
         eval_langs=["eng-latn"],
         main_score="max_ap",
         domains=["Spoken"], # no task domain existing for music, probably should add

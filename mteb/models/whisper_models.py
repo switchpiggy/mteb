@@ -9,23 +9,24 @@ import torch
 import torchaudio
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-from transformers import Wav2Vec2FeatureExtractor, Wav2Vec2ForCTC, Wav2Vec2Model
+from transformers import AutoFeatureExtractor, WhisperForAudioClassification
 
 from mteb.encoder_interface import AudioBatch, AudioData, PromptType
 from mteb.model_meta import ModelMeta
 from mteb.models.wrapper import Wrapper
+from torch.nn.functional import pad
 
 class WhisperAudioWrapper(Wrapper):
     def __init__(
         self,
-        model_name: str = "facebook/wav2vec2-base",
+        model_name: str = "openai/whisper-base",
         device: str = "cuda" if torch.cuda.is_available() else "cpu",
         **kwargs: Any,
     ):
         self.model_name = model_name
         self.device = device
-        self.model = Wav2Vec2ForCTC.from_pretrained(model_name).to(self.device)
-        self.feature_extractor = Wav2Vec2FeatureExtractor.from_pretrained(model_name)
+        self.feature_extractor = AutoFeatureExtractor.from_pretrained(model_name)
+        self.model = WhisperForAudioClassification.from_pretrained(model_name).to(self.device)
         self.sampling_rate = self.feature_extractor.sampling_rate
 
     def _process_audio(self, audio: AudioBatch) -> list[torch.Tensor]:
@@ -112,18 +113,26 @@ class WhisperAudioWrapper(Wrapper):
                 # pre-pad the audio tensors before passing to feature extractor
                 batch = self._pad_audio_batch(batch)
 
+                if type(batch).__name__ == 'Tensor':
+                    batch = batch.numpy()
+
+                # print(batch)
+
                 inputs = self.feature_extractor(
                     batch,
                     sampling_rate=self.sampling_rate,
                     return_tensors="pt",
                     padding=True,
-                    return_attention_mask=True,
+                    return_attention_mask=True
                 ).to(self.device)
 
+                print(inputs.keys())
+
+                input_features = pad(inputs.input_features, (0, 3000 - inputs.input_features.shape[-1]), mode='constant', value=0).squeeze(0)
+
                 outputs = self.model(
-                    inputs.input_values.squeeze(0),
-                    attention_mask=inputs.attention_mask,
-                    output_hidden_states=True,
+                    input_features,
+                    output_hidden_states=True
                 )
 
                 last_hidden_state = outputs.hidden_states[-1]
@@ -141,3 +150,69 @@ class WhisperAudioWrapper(Wrapper):
         **kwargs: Any,
     ) -> np.ndarray:
         return self.get_audio_embeddings(inputs, task_name=task_name, **kwargs).numpy()
+
+whisper_base = ModelMeta(
+    loader=partial(WhisperAudioWrapper, model_name="openai/whisper-base"),
+    name="openai/whisper-base",
+    languages=['en'],
+    revision="e37978b90ca9030d5170a5c07aadb050351a65bb",
+    release_date="2021-10-13",
+    modalities=["audio"],
+    n_parameters=72_600_000,
+    memory_usage_mb=1200,
+    max_tokens=float("inf"),
+    license="Apache-2.0",
+    open_weights=True,
+    public_training_data=None,
+    framework=["PyTorch"],
+    reference="https://huggingface.co/openai/whisper-base",
+    similarity_fn_name="cosine",
+    use_instructions=False,
+    training_datasets={},
+    embed_dim=64,
+    public_training_code=""
+)
+
+whisper_large_v3_turbo = ModelMeta(
+    loader=partial(WhisperAudioWrapper, model_name="openai/whisper-large-v3-turbo"),
+    name="openai/whisper-large-v3-turbo",
+    languages=['en'],
+    revision="e37978b90ca9030d5170a5c07aadb050351a65bb",
+    release_date="2021-10-13",
+    modalities=["audio"],
+    n_parameters=72_600_000,
+    memory_usage_mb=1200,
+    max_tokens=float("inf"),
+    license="Apache-2.0",
+    open_weights=True,
+    public_training_data=None,
+    framework=["PyTorch"],
+    reference="https://huggingface.co/openai/whisper-large-v3-turbo",
+    similarity_fn_name="cosine",
+    use_instructions=False,
+    training_datasets={},
+    embed_dim=64,
+    public_training_code=""
+)
+
+whisper_small = ModelMeta(
+    loader=partial(WhisperAudioWrapper, model_name="openai/whisper-small"),
+    name="openai/whisper-small",
+    languages=['en'],
+    revision="e37978b90ca9030d5170a5c07aadb050351a65bb",
+    release_date="2021-10-13",
+    modalities=["audio"],
+    n_parameters=72_600_000,
+    memory_usage_mb=1200,
+    max_tokens=float("inf"),
+    license="Apache-2.0",
+    open_weights=True,
+    public_training_data=None,
+    framework=["PyTorch"],
+    reference="https://huggingface.co/openai/whisper-small",
+    similarity_fn_name="cosine",
+    use_instructions=False,
+    training_datasets={},
+    embed_dim=64,
+    public_training_code=""
+)

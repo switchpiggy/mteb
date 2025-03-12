@@ -62,6 +62,7 @@ class ESC50PairClassification(AbsTaskAudioPairClassification):
         df = pd.DataFrame(self.dataset['train'])
 
         df = df.rename(columns={"target": "label"})
+        # df = df.loc[df['label'] < 2]
         grouped = [df.loc[df['label'] == label] for label in df['label'].unique()]
 
         similar_pairs = []

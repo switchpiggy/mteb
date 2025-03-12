@@ -58,7 +58,7 @@ class AudioPairClassificationEvaluator(Evaluator):
         assert len(self.audio1) == len(self.audio2)
         assert len(self.audio1) == len(self.labels)
 
-        if type(labels).__name__ == 'list':
+        if type(labels[0]).__name__ == 'list':
             labels = [label[0] for label in labels]
 
         # print(labels[0])

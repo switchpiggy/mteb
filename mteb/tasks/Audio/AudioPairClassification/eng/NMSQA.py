@@ -50,15 +50,20 @@ class NMSQAPairClassification(AbsTaskAudioPairClassification):
     audio1_column_name: str = "audio1"
     audio2_column_name: str = "audio2"
     label_column_name: str = "label"
-    samples_per_label: int = 85 
+    samples_per_label: int = 2 
+
+    def _extract_waveform_from_df(self, df: pd.DataFrame, audio1_name: str = 'question_audio_path', 
+    audio2_name: str = 'content_segment_audio_path'):
+        df.loc[:, audio1_name] = df.apply(lambda row: row[audio1_name]['array'], axis=1)
+        df.loc[:, audio2_name] = df.apply(lambda row: row[audio2_name]['array'], axis=1)
 
     def dataset_transform(self):
         df = pd.DataFrame(self.dataset['test'])
 
         # shuffle and split dataset by row
         df = df.sample(frac = 1)
-        df_sim = df.iloc[:len(df)/2,:]
-        df_dissim = df.iloc[len(df)/2:,:]
+        df_sim = df.iloc[:len(df)//2,:]
+        df_dissim = df.iloc[len(df)//2:,:]
         
         similar_pairs = []
         dissimilar_pairs = []
@@ -67,8 +72,11 @@ class NMSQAPairClassification(AbsTaskAudioPairClassification):
         columns_to_keep = ['question_audio_path', 'content_segment_audio_path']
         df_sim = df_sim[columns_to_keep]
         df_sim['label'] = 1
+        self._extract_waveform_from_df(df_sim)
+        self._extract_waveform_from_df(df_dissim)
 
         similar_pairs = df_sim.values.tolist()
+        
         num_similar = len(similar_pairs)
         print('Similar pairs: ', num_similar)
 
@@ -81,16 +89,25 @@ class NMSQAPairClassification(AbsTaskAudioPairClassification):
         print('Number of pairs: ', len(pairs))
         random.shuffle(pairs)
 
-        audio1, audio2, label = zip(*pairs)
+        audio1, audio2, label = zip(*pairs[:10])
+        audio1 = list(audio1)
+        audio2 = list(audio2)
+        label = list(label)
+
+        # print('label[0]:', label[0])
+
+        print('Generating dataset: ')
+        HF_ds = datasets.Dataset.from_dict({
+            'audio1': audio1,
+            'audio2': audio2,
+            'label': label
+        })
 
         # convert back to HF dataset
         self.dataset = datasets.DatasetDict({
-            'test': datasets.Dataset.from_dict({
-                'audio1': list(audio1),
-                'audio2': list(audio2),
-                'label': list(label)
-            })
+            'test': HF_ds
         })
+        print('done!')
 
         # res_df = pd.DataFrame(pairs, columns=["audio1", "audio2", "labels"])
         # self.dataset = datasets.DatasetDict({'test': datasets.Dataset.from_pandas(res_df, split='test')})

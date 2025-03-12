@@ -9,6 +9,8 @@ from mteb.abstasks.Audio.AbsTaskAudioPairClassification import (
     AbsTaskAudioPairClassification,
 )
 
+from tqdm import tqdm
+
 random.seed(42)
 
 class VocalSoundPairClassification(AbsTaskAudioPairClassification):
@@ -54,43 +56,54 @@ doi = {10.1109/ICASSP43922.2022.9746828}
     def dataset_transform(self):
         df = pd.DataFrame(self.dataset['test'])
         df['label'] = pd.factorize(df['label'])[0]
-
         grouped = [df.loc[df['label'] == label] for label in df['label'].unique()]
 
         similar_pairs = []
         dissimilar_pairs = []
 
-        for group in grouped:
+        print('Generating similar pairs: ')
+        for group in tqdm(grouped):
             files = [audio['array'].tolist() for audio in group['audio']]
             random.shuffle(files)
             # print(files[0])
             similar_pairs.extend([[files[i], files[i+1], [1]] for i in range(0, len(files) - 1, 2)])
+        print('done!')
 
         all_files = [audio['array'].tolist() for audio in df["audio"]]
         all_labels = df["label"].values.tolist()
 
+        print('Generating dissimilar pairs: ')
         num_similar = len(similar_pairs)
         while len(dissimilar_pairs) < num_similar:
             idx1, idx2 = random.sample(range(len(all_files)), 2)
             if all_labels[idx1] != all_labels[idx2]:  
                 dissimilar_pairs.append([all_files[idx1], all_files[idx2], [0]])
 
+        print('done!')
         pairs = similar_pairs + dissimilar_pairs
         print('Number of pairs: ', len(pairs))
         random.shuffle(pairs)
 
         audio1, audio2, label = zip(*pairs)
 
-        # print(label)
+        audio1 = list(audio1)
+        audio2 = list(audio2)
+        label = list(label)
 
+        HF_ds = datasets.Dataset.from_dict({
+                'audio1': audio1,
+                'audio2': audio2,
+                'label': label
+        })
+
+        # print(label)
+        print('Generating dataset: ')
         # convert back to HF dataset
         self.dataset = datasets.DatasetDict({
-            'test': datasets.Dataset.from_dict({
-                'audio1': list(audio1),
-                'audio2': list(audio2),
-                'label': list(label)
-            })
+            'test': HF_ds
         })
+
+        print('done!')
 
         # res_df = pd.DataFrame(pairs, columns=["audio1", "audio2", "labels"])
         # self.dataset = datasets.DatasetDict({'test': datasets.Dataset.from_pandas(res_df, split='test')})

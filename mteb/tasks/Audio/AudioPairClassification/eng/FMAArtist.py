@@ -11,7 +11,7 @@ from mteb.abstasks.Audio.AbsTaskAudioPairClassification import (
 
 random.seed(42)
 
-class FMAGenrePairClassification(AbsTaskAudioPairClassification):
+class FMAArtistPairClassification(AbsTaskAudioPairClassification):
     metadata = TaskMetadata(
         name="FMAArtistPairClassification",
         description="A subset of FMA classifying whether two audio clips are of the same or different artist (many artists)",
@@ -22,7 +22,7 @@ class FMAGenrePairClassification(AbsTaskAudioPairClassification):
         },
         type="AudioPairClassification",
         category="t2t", # no audio category yet
-        eval_splits=["train"],
+        eval_splits=["test"],
         eval_langs=["eng-latn"],
         main_score="max_ap",
         domains=["Spoken"], # no task domain existing for music, probably should add
@@ -52,9 +52,10 @@ doi = {10.48550/arXiv.1612.01840}
     samples_per_label: int = 1000 # guess, fill in later
 
     def dataset_transform(self):
+        print((self.dataset['train'][0]['audio']['sampling_rate']))
         df = pd.DataFrame(self.dataset['train'])
 
-        df = df.rename(columns={"genre": "label"})
+        df = df.rename(columns={"artist": "label"})
         df['label'] = pd.factorize(df['label'])[0]
         grouped = [df.loc[df['label'] == label] for label in df['label'].unique()]
 
