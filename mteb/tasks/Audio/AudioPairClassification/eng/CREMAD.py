@@ -24,7 +24,7 @@ class CREMADPairClassification(AbsTaskAudioPairClassification):
         category="t2t",
         eval_splits=["train"],
         eval_langs=["eng-latn"],
-        main_score="accuracy",
+        main_score="max-ap",
         domains=["Spoken"],
         task_subtypes=["Emotion classification"],
         license="not specified",
