@@ -7,7 +7,7 @@ from typing import Any
 from datasets import Dataset
 
 from ...encoder_interface import AudioEncoder, Encoder
-from ...evaluation.evaluators.Audio import AudioPairClassificationEvaluator
+from ...evaluation.evaluators.Audio.AudioPairClassificationEvaluator import AudioPairClassificationEvaluator
 from ...load_results.task_results import ScoresDict
 from ..AbsTask import AbsTask
 from ..TaskMetadata import DescriptiveStatistics
@@ -26,10 +26,15 @@ class AbsTaskAudioPairClassification(AbsTask):
         label: int
     """
 
+    audio1_column_name : str = 'audio1'
+    audio2_column_name : str = 'audio2'
+    label_column_name : str = 'label'
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
     def _add_main_score(self, scores: ScoresDict) -> None:
+        # print(scores)
         scores["main_score"] = scores[self.metadata.main_score]
 
     def _evaluate_subset(
@@ -40,14 +45,14 @@ class AbsTaskAudioPairClassification(AbsTask):
         encode_kwargs: dict[str, str] = {},
         **kwargs,
     ) -> ScoresDict:
-        data_split = dataset[0]
+        data_split = dataset
         logging.getLogger(
             "sentence_transformers.evaluation.PairClassificationEvaluator"
         ).setLevel(logging.WARN)
         evaluator = AudioPairClassificationEvaluator(
-            data_split["audio1"],
-            data_split["audio2"],
-            data_split["labels"],
+            data_split[self.audio1_column_name],
+            data_split[self.audio2_column_name],
+            data_split[self.label_column_name],
             task_name=self.metadata.name,
             **kwargs,
         )
