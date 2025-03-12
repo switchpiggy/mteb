@@ -91,19 +91,23 @@ class ESC50PairClassification(AbsTaskAudioPairClassification):
         print('done!')
 
         print(f'Number of pairs: {len(pairs)}')
-        
-        print('Zipping features and generating dataset...')
         audio1, audio2, label = zip(*pairs)
 
-        # print(label)
+        audio1 = list(audio1)
+        audio2 = list(audio2)
+        label = list(label)
 
+        HF_ds = datasets.Dataset.from_dict({
+                'audio1': audio1,
+                'audio2': audio2,
+                'label': label
+        })
+
+        # print(label)
+        print('Zipping features and generating dataset...')
         # convert back to HF dataset
         self.dataset = datasets.DatasetDict({
-            'test': datasets.Dataset.from_dict({
-                'audio1': list(audio1),
-                'audio2': list(audio2),
-                'label': list(label)
-            })
+            'test': HF_ds
         })
         print('done!')
 
